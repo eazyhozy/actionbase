@@ -1,0 +1,651 @@
+---
+title: CLI
+description: Actionbase와 상호작용하기 위한 커맨드라인 인터페이스
+sidebar:
+  order: 1
+tableOfContents:
+  maxHeadingLevel: 2
+translated-by-kanana-2: true
+---
+
+import { Aside, Badge, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<Aside type="note">CLI는 현재 프리뷰 상태입니다. 명령어와 옵션은 변경될 수 있습니다.</Aside>
+
+Actionbase CLI는 데이터베이스, 테이블, 엣지를 관리하기 위한 대화형 콘솔을 제공합니다. Actionbase 서버에 연결하며 모든 메타데이터 및 데이터 작업을 지원합니다.
+
+## 설치 {#installation}
+
+<Tabs>
+  <TabItem label="Docker (권장)">
+    Actionbase를 가장 쉽게 경험하는 방법은 Docker를 사용하는 것입니다. 독립 이미지는 백그라운드에서 서버를 실행하고 포그라운드에서 CLI를 실행합니다:
+
+    ```bash
+    docker run -it --pull always ghcr.io/kakao/actionbase:standalone
+    ```
+
+    Actionbase를 탐색하고 핵심 기능을 이해하는 데 충분합니다.
+
+  </TabItem>
+  <TabItem label="Homebrew">
+    ```bash
+    brew tap kakao/actionbase https://github.com/kakao/actionbase
+    brew install actionbase
+    ```
+  </TabItem>
+  <TabItem label="소스에서 직접 설치">
+    ```bash
+    git clone https://github.com/kakao/actionbase.git
+    cd actionbase/cli
+    make build
+    ```
+
+    바이너리는 `cli/bin/actionbase`에 생성됩니다.
+
+  </TabItem>
+</Tabs>
+
+## CLI 시작 {#starting-the-cli}
+
+```bash
+actionbase [options]
+```
+
+<Aside type="tip">
+  Docker 독립 실행 모드(`ghcr.io/kakao/actionbase:standalone`)를 사용할 경우, CLI는 기본적으로 `--debug`와 `--proxy` 옵션이 활성화된 상태로 시작합니다.
+  --proxy` enabled by default.
+</Aside>
+
+### 시작 옵션 {#startup-options}
+
+| Option            | Description                                          | Default                 |
+| ----------------- | ---------------------------------------------------- | ----------------------- |
+| `--host <url>`    | Actionbase server URL                                | `http://localhost:8080` |
+| `--authKey <key>` | Authentication key                                   | (none)                  |
+| `--debug`         | Enable debug logging (shows HTTP requests/responses) | off                     |
+| `--plain`         | Plain text output mode (no colors)                   | off                     |
+| `--proxy [port]`  | Start in proxy mode for interactive guides           | `9300`                  |
+| `--version`       | Display CLI version and exit                         |                         |
+
+### 예시 {#examples}
+
+```bash
+# Connect to local server
+actionbase
+
+# Connect to remote server
+actionbase --host https://actionbase.example.com
+
+# Enable debug mode to see HTTP traffic
+actionbase --debug
+
+# Start with proxy mode for guides
+actionbase --proxy
+```
+
+## 컨텍스트 관리 {#context-management}
+
+CLI는 데이터베이스 및 테이블 선택을 위한 세션 컨텍스트를 유지합니다. 프롬프트에 현재 컨텍스트가 표시됩니다:
+
+```
+actionbase>                    # No context
+actionbase(mydb)>              # Database selected
+actionbase(mydb:mytable)>      # Database and table selected
+```
+
+### context {#context}
+
+현재 세션 상태를 표시합니다.
+
+```
+context
+```
+
+**출력에는 다음이 포함됩니다:**
+
+- 현재 호스트 URL
+- 현재 데이터베이스
+- 현재 테이블 또는 별칭
+- 프록시 모드 상태 (포트 포함, 켜짐/꺼짐)
+- 디버그 모드 상태 (켜짐/꺼짐)
+
+**Example:**
+
+```
+actionbase> context
+  │ |----------|--------------------------------|
+  │ | KEY      | VALUE                          |
+  │ |----------|--------------------------------|
+  │ | host     | http://localhost:8080          |
+  │ | database | likes                          |
+  │ | table    | likes                          |
+  │ | alias    |                                |
+  │ | proxy    | off (port -)                   |
+  │ | debug    | off                            |
+  │ |----------|--------------------------------|
+```
+
+### 사용 {#use}
+
+현재 데이터베이스, 테이블 또는 별칭 컨텍스트를 전환합니다.
+
+```
+use <database|table|alias> <name>
+```
+
+| Subcommand            | Description                                               |
+| --------------------- | --------------------------------------------------------- |
+| `use database <name>` | Switch to specified database (clears table/alias context) |
+| `use table <name>`    | Switch to specified table (requires database context)     |
+| `use alias <name>`    | Switch to specified alias (requires database context)     |
+
+**Examples:**
+
+```
+actionbase> use database likes
+  │ Current database: likes
+
+actionbase(likes)> use table likes
+  │ Current table: likes
+
+actionbase(likes:likes)>
+```
+
+### debug {#debug}
+
+디버그 모드를 켜거나 끕니다. 활성화하면 HTTP 요청과 응답이 로그에 기록됩니다.
+
+```
+debug <on|off>
+```
+
+**Example:**
+
+```
+actionbase> debug on
+  │ Debugging is on
+
+actionbase> get --source Alice --target Phone
+  │ → GET /graph/v3/databases/likes/tables/likes/edges/get?source=Alice&target=Phone
+  │ ← 200 OK {"edges":[...]}
+```
+
+## 메타데이터 작업 {#metadata-operations}
+
+### create {#create}
+
+데이터베이스, 스토리지, 테이블 또는 별칭을 생성합니다.
+
+#### create database {#create-database}
+
+```
+create database --name <name> --comment <comment>
+```
+
+| Flag        | Required | Description          |
+| ----------- | -------- | -------------------- |
+| `--name`    | Yes      | Database name        |
+| `--comment` | Yes      | Database description |
+
+**Example:**
+
+```
+actionbase> create database --name social --comment "Social interactions"
+  │ Database created: social
+```
+
+#### create storage {#create-storage}
+
+```
+create storage --name <name> --comment <comment> --storageType <type> --hbaseNamespace <ns> --hbaseTable <table>
+```
+
+| Flag               | Required | Description         |
+| ------------------ | -------- | ------------------- |
+| `--name`           | Yes      | Storage name        |
+| `--comment`        | Yes      | Storage description |
+| `--storageType`    | Yes      | Storage type        |
+| `--hbaseNamespace` | Yes      | HBase namespace     |
+| `--hbaseTable`     | Yes      | HBase table name    |
+
+#### create table {#create-table}
+
+```
+create table --database <db> --storage <storage> --name <name> --comment <comment> --type <type> --direction <direction> --schema <schema> [--indices <indices>] [--groups <groups>]
+```
+
+| Flag          | Required | Description                     |
+| ------------- | -------- | ------------------------------- |
+| `--database`  | Yes      | Database name                   |
+| `--storage`   | Yes      | Storage name                    |
+| `--name`      | Yes      | Table name                      |
+| `--comment`   | Yes      | Table description               |
+| `--type`      | Yes      | Table type                      |
+| `--direction` | Yes      | Direction type (IN, OUT, BOTH)  |
+| `--schema`    | Yes      | JSON schema definition          |
+| `--indices`   | No       | JSON array of index definitions |
+| `--groups`    | No       | JSON array of group definitions |
+
+#### create alias {#create-alias}
+
+```
+create alias --database <db> --table <table> --name <name> --comment <comment>
+```
+
+| Flag         | Required | Description       |
+| ------------ | -------- | ----------------- |
+| `--database` | Yes      | Database name     |
+| `--table`    | Yes      | Table name        |
+| `--name`     | Yes      | Alias name        |
+| `--comment`  | Yes      | Alias description |
+
+### show {#show}
+
+데이터베이스, 스토리지, 테이블, 별칭, 인덱스 또는 그룹을 표시합니다.
+
+```
+show <databases|storages|tables|aliases|indices|groups> [--using <table|alias>]
+```
+
+| Subcommand       | Context Required | Description                                 |
+| ---------------- | ---------------- | ------------------------------------------- |
+| `show databases` | None             | List all databases                          |
+| `show storages`  | None             | List all storages with configuration        |
+| `show tables`    | Database         | List tables in current database             |
+| `show aliases`   | Database         | List aliases in current database            |
+| `show indices`   | Database + Table | Show indices for current or specified table |
+| `show groups`    | Database + Table | Show groups for current or specified table  |
+
+**Examples:**
+
+```
+actionbase> show databases
+  │ |-------|---------|
+  │ | NAME  | DESC    |
+  │ |-------|---------|
+  │ | likes | Likes   |
+  │ | social| Social  |
+  │ |-------|---------|
+
+actionbase(likes)> show tables
+  │ |-------|------|-----------|
+  │ | NAME  | TYPE | DIRECTION |
+  │ |-------|------|-----------|
+  │ | likes | ...  | BOTH      |
+  │ |-------|------|-----------|
+
+actionbase(likes:likes)> show indices
+  │ |------------------|--------|
+  │ | NAME             | FIELDS |
+  │ |------------------|--------|
+  │ | created_at_desc  | ...    |
+  │ |------------------|--------|
+```
+
+### desc {#desc}
+
+스키마, 필드 및 인덱스를 포함한 테이블 또는 별칭의 세부 정보를 설명합니다.
+
+```
+desc <table|alias> [<name>]
+```
+
+`<name>`이 생략된 경우 현재 테이블 또는 별칭의 세부 정보를 설명합니다.
+
+**Example:**
+
+```
+actionbase(likes)> desc table likes
+  │ Table: likes
+  │ Type: INDEXED
+  │ Direction: BOTH
+  │
+  │ Source: STRING
+  │ Target: STRING
+  │
+  │ Fields:
+  │ |------------|------|----------|
+  │ | NAME       | TYPE | NULLABLE |
+  │ |------------|------|----------|
+  │ | created_at | LONG | false    |
+  │ |------------|------|----------|
+```
+
+## 데이터 조작 {#data-operations}
+
+### 가져오기 {#get}
+
+소스 및 타겟별로 특정 엣지를 쿼리합니다.
+
+```
+get [<table>] --source <source> --target <target>
+```
+
+| Flag       | Required | Description                                   |
+| ---------- | -------- | --------------------------------------------- |
+| `[table]`  | No       | Table or alias name (uses current if omitted) |
+| `--source` | Yes      | Source node ID                                |
+| `--target` | Yes      | Target node ID                                |
+
+**Example:**
+
+```
+actionbase(likes:likes)> get --source Alice --target Phone
+  │ The edge is found: [Alice -> Phone]
+  │ |---------------|--------|--------|---------------------------|
+  │ | VERSION       | SOURCE | TARGET | PROPERTIES                |
+  │ |---------------|--------|--------|---------------------------|
+  │ | 1737377177245 | Alice  | Phone  | created_at: 1737377177245 |
+  │ |---------------|--------|--------|---------------------------|
+```
+
+### 스캔 {#scan}
+
+인덱스를 사용하여 엣지를 스캔합니다.
+
+```
+scan [<table>] --index <index> --start <start> --direction <direction> [--ranges <ranges>] [--limit <limit>]
+```
+
+| Flag          | Required | Description                                   |
+| ------------- | -------- | --------------------------------------------- |
+| `[table]`     | No       | Table or alias name (uses current if omitted) |
+| `--index`     | Yes      | Index name to scan                            |
+| `--start`     | Yes      | Starting node ID                              |
+| `--direction` | Yes      | Scan direction: IN, OUT, or BOTH              |
+| `--ranges`    | No       | Range specification for filtering             |
+| `--limit`     | No       | Maximum rows to return (default: 25)          |
+
+**Example:**
+
+```
+actionbase(likes:likes)> scan --index created_at_desc --start Alice --direction OUT
+  │ The 2 edges found (offset: -, hasNext: false)
+  │ |---|---------------|--------|--------|---------------------------|
+  │ | # | VERSION       | SOURCE | TARGET | PROPERTIES                |
+  │ |---|---------------|--------|--------|---------------------------|
+  │ | 1 | 1737377177297 | Alice  | Laptop | created_at: 1737377177297 |
+  │ | 2 | 1737377177245 | Alice  | Phone  | created_at: 1737377177245 |
+  │ |---|---------------|--------|--------|---------------------------|
+```
+
+### 특정 노드 및 방향에 대한 엣지 개수를 셉니다. {#count}
+
+변경
+
+```
+count [<table>] --start <start> --direction <direction>
+```
+
+| Flag          | Required | Description                                   |
+| ------------- | -------- | --------------------------------------------- |
+| `[table]`     | No       | Table or alias name (uses current if omitted) |
+| `--start`     | Yes      | Starting node ID                              |
+| `--direction` | Yes      | Direction: IN, OUT, or BOTH                   |
+
+**Example:**
+
+```
+actionbase(likes:likes)> count --start Alice --direction OUT
+  │ |-------|-------|
+  │ | DIR   | COUNT |
+  │ |-------|-------|
+  │ | OUT   | 2     |
+  │ |-------|-------|
+
+actionbase(likes:likes)> count --start Phone --direction IN
+  │ |-------|-------|
+  │ | DIR   | COUNT |
+  │ |-------|-------|
+  │ | IN    | 2     |
+  │ |-------|-------|
+```
+
+### 엣지를 삽입, 업데이트 또는 삭제합니다. {#mutate}
+
+Actionbase는 [상태 전환](/ko/design/mutation/#state-transitions)에 대해 클라이언트가 발급한 타임스탬프를 요구합니다. 이벤트가 순서대로 도착하지 않더라도 Actionbase는 이러한 타임스탬프를 사용하여 올바른 최종 상태를 계산합니다.
+
+```
+mutate [<table>] --type <type> --source <source> --target <target> --version <version> --properties <properties>
+```
+
+| Flag           | Required | Description                                        |
+| -------------- | -------- | -------------------------------------------------- |
+| `[table]`      | No       | Table or alias name (uses current if omitted)      |
+| `--type`       | Yes      | Mutation type: INSERT, UPDATE, or DELETE           |
+| `--source`     | Yes      | Source node ID                                     |
+| `--target`     | Yes      | Target node ID                                     |
+| `--version`    | Yes      | Timestamp/version (supports `$NOW` placeholder)    |
+| `--properties` | Yes      | JSON object with edge properties (supports `$NOW`) |
+
+**Example:**
+
+```
+actionbase(likes:likes)> mutate --type INSERT --source Charlie --target Phone --version $NOW --properties '{"created_at": $NOW}'
+  │ Mutation result: 1 updated, 0 failed
+```
+
+<Aside type="tip">
+  `$NOW`를 현재 Unix 타임스탬프(밀리초)의 자리 표시자로 사용합니다. 이 값은 `--version` 및 `--properties` 값 모두에서 작동합니다.
+
+유틸리티 명령어
+
+</Aside>
+
+## 로드 {#utility-commands}
+
+### YAML 파일 또는 프리셋에서 명령을 로드하고 실행합니다. {#load}
+
+파일 로드
+
+```
+load <file|preset> <path> [--ref <branch>]
+```
+
+#### 로컬 YAML 파일에서 명령을 로드합니다: {#load-file}
+
+**YAML 파일 형식:**
+
+```
+load file <path>
+```
+
+프리셋 로드
+
+```yaml
+- name: 'Create database'
+  description: 'Optional description'
+  command: "create database --name mydb --comment 'My database'"
+
+- name: 'Use database'
+  command: 'use database mydb'
+```
+
+#### load preset {#load-preset}
+
+Actionbase GitHub 저장소에서 프리셋을 다운로드하고 실행하세요:
+
+```
+load preset <name> [--ref <branch>]
+```
+
+| Flag     | Required | Description                 |
+| -------- | -------- | --------------------------- |
+| `<name>` | Yes      | Preset name                 |
+| `--ref`  | No       | Git branch or tag reference |
+
+**사용 가능한 프리셋:**
+
+| Preset            | Description                                       |
+| ----------------- | ------------------------------------------------- |
+| `likes`           | Sample likes data (Alice/Bob liking Phone/Laptop) |
+| `hands-on-social` | Social media application demo data                |
+
+**Example:**
+
+```
+actionbase> load preset likes
+  │ 3 edges inserted
+  │  - Alice → Phone
+  │  - Alice → Laptop
+  │  - Bob → Phone
+```
+
+### guide {#guide}
+
+대화형 가이드를 시작합니다. 프록시 모드(`--proxy` 플래그 사용)가 필요합니다.
+
+```
+guide start <name>
+```
+
+**사용 가능한 가이드:**
+
+| Guide             | Description                                   |
+| ----------------- | --------------------------------------------- |
+| `hands-on-social` | Interactive social media application tutorial |
+
+**Example:**
+
+```bash
+# Start CLI with proxy mode
+actionbase --proxy
+
+# Then start the guide
+actionbase> guide start hands-on-social
+```
+
+가이드가 브라우저 기반 대화형 튜토리얼을 열고, 명령을 CLI로 전송합니다.
+
+### help {#help}
+
+모든 사용 가능한 명령과 설명, 사용법을 표시합니다.
+
+```
+help
+```
+
+**Example:**
+
+```
+actionbase> help
+  │ Available commands
+  │ |---------|-------------------------------|----------------------------------------|
+  │ | NAME    | DESCRIPTION                   | USAGE                                  |
+  │ |---------|-------------------------------|----------------------------------------|
+  │ | context | Show current status           | `context`                              |
+  │ | create  | Create database/storage/...   | `create <database|storage|table|...>`  |
+  │ | ...     | ...                           | ...                                    |
+  │ |---------|-------------------------------|----------------------------------------|
+```
+
+### exit {#exit}
+
+CLI 콘솔을 종료합니다.
+
+```
+exit
+```
+
+`Ctrl+C` 또는 `Ctrl+D`를 눌러 종료할 수도 있습니다.
+
+## 일반적인 워크플로 {#common-workflows}
+
+### 빠른 시작: 데이터 생성 및 쿼리 {#quick-start-create-and-query-data}
+
+```
+# 1. Load sample data using preset
+actionbase> load preset likes
+
+# 2. Check current context (database and table are set automatically)
+actionbase(likes:likes)> context
+
+# 3. Query a specific edge
+actionbase(likes:likes)> get --source Alice --target Phone
+
+# 4. Scan all edges from Alice
+actionbase(likes:likes)> scan --index created_at_desc --start Alice --direction OUT
+
+# 5. Count edges
+actionbase(likes:likes)> count --start Phone --direction IN
+```
+
+### 데이터 작업 워크플로 {#data-operations-workflow}
+
+```
+# 1. Select database and table
+actionbase> use database social
+actionbase(social)> use table follows
+
+# 2. Insert an edge
+actionbase(social:follows)> mutate --type INSERT --source user1 --target user2 --version $NOW --properties '{"created_at": $NOW}'
+
+# 3. Verify the edge
+actionbase(social:follows)> get --source user1 --target user2
+
+# 4. Delete the edge
+actionbase(social:follows)> mutate --type DELETE --source user1 --target user2 --version $NOW --properties '{}'
+```
+
+### 가이드를 통한 대화형 학습 {#interactive-learning-with-guides}
+
+```bash
+# Start CLI with proxy mode enabled
+actionbase --proxy
+
+# Start the interactive guide
+actionbase> guide start hands-on-social
+```
+
+가이드가 브라우저에서 열리고 소셜 미디어 애플리케이션 구축 과정을 안내합니다.
+
+## 참고 {#reference}
+
+### 방향 값 {#direction-values}
+
+| Value  | Description                      |
+| ------ | -------------------------------- |
+| `OUT`  | Outgoing edges (source → target) |
+| `IN`   | Incoming edges (target ← source) |
+| `BOTH` | Both directions                  |
+
+### 뮤테이션 유형 {#mutation-types}
+
+| Type     | Description             |
+| -------- | ----------------------- |
+| `INSERT` | Create a new edge       |
+| `UPDATE` | Update an existing edge |
+| `DELETE` | Delete an edge          |
+
+### 컨텍스트 요구사항 {#context-requirements}
+
+| Command           | Database Required | Table Required    |
+| ----------------- | ----------------- | ----------------- |
+| `create database` | No                | No                |
+| `create storage`  | No                | No                |
+| `create table`    | No                | No                |
+| `create alias`    | No                | No                |
+| `show databases`  | No                | No                |
+| `show storages`   | No                | No                |
+| `show tables`     | Yes               | No                |
+| `show aliases`    | Yes               | No                |
+| `show indices`    | Yes               | Yes (or specify)  |
+| `show groups`     | Yes               | Yes (or specify)  |
+| `desc table`      | Yes               | No (uses current) |
+| `desc alias`      | Yes               | No (uses current) |
+| `get`             | Yes               | Yes (or specify)  |
+| `scan`            | Yes               | Yes (or specify)  |
+| `count`           | Yes               | Yes (or specify)  |
+| `mutate`          | Yes               | Yes (or specify)  |
+
+### 특수 기능 {#special-features}
+
+**다중 라인 입력**: 줄을 `\`로 끝내면 다음 줄로 이어집니다.
+
+```
+actionbase> create table --database mydb --name mytable \
+  --comment "My table" --type INDEXED --direction BOTH \
+  --schema '{"src":{"type":"STRING"},"tgt":{"type":"STRING"}}'
+```
+
+**인용 처리**: 입력은 인용이 균형을 이룰 때까지 자동으로 계속됩니다.
