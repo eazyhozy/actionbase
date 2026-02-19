@@ -1,0 +1,977 @@
+---
+title: Metadata API 참조
+description: 메타데이터 관리 API 참조
+sidebar:
+  order: 1
+tableOfContents:
+  maxHeadingLevel: 2
+translated-by-kanana-2: true
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="caution">
+  인증은 강제되지 않습니다. [API 참조](/ko/api-references/#authentication)를 확인하세요.
+</Aside>
+
+데이터베이스, 테이블 및 별칭에 대한 메타데이터 관리 API입니다.
+
+## 1. 데이터베이스 목록 조회 {#1-list-databases}
+
+모든 데이터베이스를 조회합니다.
+
+### 엔드포인트 {#endpoint}
+
+```
+GET /graph/v3/databases
+```
+
+### 파라미터 {#parameters}
+
+| Location | Parameter     | Required | Description                                  |
+| -------- | ------------- | -------- | -------------------------------------------- |
+| Header   | Authorization | Optional | Authentication key (reserved for future use) |
+
+### 응답 타입 {#response-type}
+
+`List<`[DatabaseDescriptor](#databasedescriptor)`>` - 데이터베이스 목록
+
+### 요청 예시 {#request-example}
+
+```bash
+curl -X GET \
+    "http://ab.example.com/graph/v3/databases" \
+    -H "Authorization: YOUR_API_KEY"
+```
+
+### 응답 예시 {#response-example}
+
+```json
+[
+  {
+    "tenant": "default",
+    "database": "mydb",
+    "active": true,
+    "comment": "My database",
+    "revision": 1,
+    "createdAt": 1700000000000,
+    "createdBy": "admin",
+    "updatedAt": 1700000000000,
+    "updatedBy": "admin"
+  }
+]
+```
+
+## 2. 데이터베이스 조회 {#2-get-database}
+
+이름으로 단일 데이터베이스를 조회합니다.
+
+### 엔드포인트 {#endpoint}
+
+```
+GET /graph/v3/databases/{database}
+```
+
+### 파라미터 {#parameters}
+
+| Location | Parameter     | Required | Description                                  |
+| -------- | ------------- | -------- | -------------------------------------------- |
+| Header   | Authorization | Optional | Authentication key (reserved for future use) |
+| Path     | database      | Required | Database name                                |
+
+### 응답 타입 {#response-type}
+
+[DatabaseDescriptor](#databasedescriptor) - 데이터베이스 정보
+
+찾을 수 없는 경우 404를 반환합니다.
+
+### 요청 예시 {#request-example}
+
+```bash
+curl -X GET \
+    "http://ab.example.com/graph/v3/databases/mydb" \
+    -H "Authorization: YOUR_API_KEY"
+```
+
+### 응답 예시 {#response-example}
+
+```json
+{
+  "tenant": "default",
+  "database": "mydb",
+  "active": true,
+  "comment": "My database",
+  "revision": 1,
+  "createdAt": 1700000000000,
+  "createdBy": "admin",
+  "updatedAt": 1700000000000,
+  "updatedBy": "admin"
+}
+```
+
+## 3. 데이터베이스 생성 {#3-create-database}
+
+새 데이터베이스를 생성하세요.
+
+### 엔드포인트 {#endpoint}
+
+```
+POST /graph/v3/databases
+```
+
+### 파라미터 {#parameters}
+
+| Location | Parameter     | Required | Description                                  |
+| -------- | ------------- | -------- | -------------------------------------------- |
+| Header   | Authorization | Optional | Authentication key (reserved for future use) |
+| Body     | database      | Required | Database name                                |
+| Body     | comment       | Required | Database description                         |
+
+### 요청 본문 {#request-body}
+
+[DatabaseCreateRequest](#databasecreaterequest) - 데이터베이스 생성 페이로드
+
+### 응답 타입 {#response-type}
+
+[DatabaseDescriptor](#databasedescriptor) - 생성된 데이터베이스 정보
+
+### 요청 예시 {#request-example}
+
+```bash
+curl -X POST \
+    "http://ab.example.com/graph/v3/databases" \
+    -H "Authorization: YOUR_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "database": "mydb",
+      "comment": "My database"
+    }'
+```
+
+### 응답 예시 {#response-example}
+
+```json
+{
+  "tenant": "default",
+  "database": "mydb",
+  "active": true,
+  "comment": "My database",
+  "revision": 1,
+  "createdAt": 1700000000000,
+  "createdBy": "admin",
+  "updatedAt": 1700000000000,
+  "updatedBy": "admin"
+}
+```
+
+## 4. 데이터베이스 업데이트 {#4-update-database}
+
+기존 데이터베이스를 업데이트하세요.
+
+### 엔드포인트 {#endpoint}
+
+```
+PUT /graph/v3/databases/{database}
+```
+
+### 파라미터 {#parameters}
+
+| Location | Parameter     | Required | Description                                  |
+| -------- | ------------- | -------- | -------------------------------------------- |
+| Header   | Authorization | Optional | Authentication key (reserved for future use) |
+| Path     | database      | Required | Database name                                |
+| Body     | active        | Optional | Whether the database is active               |
+| Body     | comment       | Optional | Database description                         |
+
+### 요청 본문 {#request-body}
+
+[DatabaseUpdateRequest](#databaseupdaterequest) - 데이터베이스 업데이트 페이로드
+
+### 응답 타입 {#response-type}
+
+[DatabaseDescriptor](#databasedescriptor) - 업데이트된 데이터베이스 정보
+
+### 요청 예시 {#request-example}
+
+```bash
+curl -X PUT \
+    "http://ab.example.com/graph/v3/databases/mydb" \
+    -H "Authorization: YOUR_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "active": true,
+      "comment": "Updated description"
+    }'
+```
+
+## 5. 데이터베이스 삭제 {#5-delete-database}
+
+기존 데이터베이스를 삭제합니다.
+
+### 엔드포인트 {#endpoint}
+
+```
+DELETE /graph/v3/databases/{database}
+```
+
+### 파라미터 {#parameters}
+
+| Location | Parameter     | Required | Description                                  |
+| -------- | ------------- | -------- | -------------------------------------------- |
+| Header   | Authorization | Optional | Authentication key (reserved for future use) |
+| Path     | database      | Required | Database name                                |
+
+### 응답 형식 {#response-type}
+
+204 No Content (응답 본문 없음)
+
+### 요청 예시 {#request-example}
+
+```bash
+curl -X DELETE \
+    "http://ab.example.com/graph/v3/databases/mydb" \
+    -H "Authorization: YOUR_API_KEY"
+```
+
+## 6. 테이블 목록 조회 {#6-list-tables}
+
+데이터베이스 내 모든 테이블을 조회합니다.
+
+### 엔드포인트 {#endpoint}
+
+```
+GET /graph/v3/databases/{database}/tables
+```
+
+### 파라미터 {#parameters}
+
+| Location | Parameter     | Required | Description                                  |
+| -------- | ------------- | -------- | -------------------------------------------- |
+| Header   | Authorization | Optional | Authentication key (reserved for future use) |
+| Path     | database      | Required | Database name                                |
+
+### 응답 형식 {#response-type}
+
+`List<`[TableDescriptor](#tabledescriptor)`>` - 테이블 목록
+
+### 요청 예시 {#request-example}
+
+```bash
+curl -X GET \
+    "http://ab.example.com/graph/v3/databases/mydb/tables" \
+    -H "Authorization: YOUR_API_KEY"
+```
+
+## 7. 테이블 조회 {#7-get-table}
+
+테이블 이름으로 단일 테이블을 조회합니다.
+
+### 엔드포인트 {#endpoint}
+
+```
+GET /graph/v3/databases/{database}/tables/{table}
+```
+
+### 파라미터 {#parameters}
+
+| Location | Parameter     | Required | Description                                  |
+| -------- | ------------- | -------- | -------------------------------------------- |
+| Header   | Authorization | Optional | Authentication key (reserved for future use) |
+| Path     | database      | Required | Database name                                |
+| Path     | table         | Required | Table name                                   |
+
+### 응답 형식 {#response-type}
+
+[TableDescriptor](#tabledescriptor) - 테이블 정보
+
+찾을 수 없으면 404를 반환합니다.
+
+### 요청 예시 {#request-example}
+
+```bash
+curl -X GET \
+    "http://ab.example.com/graph/v3/databases/mydb/tables/follows" \
+    -H "Authorization: YOUR_API_KEY"
+```
+
+### 응답 예시 {#response-example}
+
+```json
+{
+  "type": "edge",
+  "tenant": "default",
+  "database": "mydb",
+  "table": "follows",
+  "schema": {
+    "type": "edge",
+    "source": { "type": "string", "comment": "user id" },
+    "target": { "type": "string", "comment": "user id" },
+    "properties": [],
+    "direction": "OUT",
+    "indexes": [],
+    "groups": []
+  },
+  "storage": "datastore://hbase/follows_table",
+  "mode": "SYNC",
+  "active": true,
+  "comment": "User follows relationship",
+  "revision": 1,
+  "createdAt": 1700000000000,
+  "createdBy": "admin",
+  "updatedAt": 1700000000000,
+  "updatedBy": "admin"
+}
+```
+
+## 8. 테이블 생성 {#8-create-table}
+
+새 테이블을 생성합니다.
+
+### 엔드포인트 {#endpoint}
+
+```
+POST /graph/v3/databases/{database}/tables
+```
+
+### 파라미터 {#parameters}
+
+| Location | Parameter     | Required | Description                                     |
+| -------- | ------------- | -------- | ----------------------------------------------- |
+| Header   | Authorization | Optional | Authentication key (reserved for future use)    |
+| Path     | database      | Required | Database name                                   |
+| Body     | table         | Required | Table name                                      |
+| Body     | schema        | Required | Edge schema definition                          |
+| Body     | storage       | Required | Storage URI (`datastore://<namespace>/<table>`) |
+| Body     | mode          | Optional | Mutation mode (default: SYNC)                   |
+| Body     | comment       | Required | Table description                               |
+
+### 요청 본문 {#request-body}
+
+[TableCreateRequest](#tablecreaterequest) - 테이블 생성 페이로드
+
+### 응답 타입 {#response-type}
+
+[TableDescriptor](#tabledescriptor) - 생성된 테이블 정보
+
+### 요청 예시 {#request-example}
+
+```bash
+curl -X POST \
+    "http://ab.example.com/graph/v3/databases/mydb/tables" \
+    -H "Authorization: YOUR_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "table": "follows",
+      "schema": {
+        "type": "EDGE",
+        "source": { "type": "string", "comment": "user id" },
+        "target": { "type": "string", "comment": "user id" },
+        "properties": [],
+        "direction": "OUT",
+        "indexes": [],
+        "groups": []
+      },
+      "storage": "datastore://hbase/follows_table",
+      "mode": "SYNC",
+      "comment": "User follows relationship"
+    }'
+```
+
+## 9. 테이블 수정 {#9-update-table}
+
+기존 테이블을 수정합니다.
+
+### 엔드포인트 {#endpoint}
+
+```
+PUT /graph/v3/databases/{database}/tables/{table}
+```
+
+### 파라미터 {#parameters}
+
+| Location | Parameter     | Required | Description                                  |
+| -------- | ------------- | -------- | -------------------------------------------- |
+| Header   | Authorization | Optional | Authentication key (reserved for future use) |
+| Path     | database      | Required | Database name                                |
+| Path     | table         | Required | Table name                                   |
+| Body     | active        | Optional | Whether the table is active                  |
+| Body     | schema        | Optional | Edge schema definition                       |
+| Body     | mode          | Optional | Mutation mode                                |
+| Body     | comment       | Optional | Table description                            |
+
+### 요청 본문 {#request-body}
+
+[TableUpdateRequest](#tableupdaterequest) - 테이블 수정 페이로드
+
+### 응답 타입 {#response-type}
+
+[TableDescriptor](#tabledescriptor) - 수정된 테이블 정보
+
+### 요청 예시 {#request-example}
+
+```bash
+curl -X PUT \
+    "http://ab.example.com/graph/v3/databases/mydb/tables/follows" \
+    -H "Authorization: YOUR_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "active": true,
+      "comment": "Updated description"
+    }'
+```
+
+## 10. 테이블 삭제 {#10-delete-table}
+
+기존 테이블을 삭제합니다.
+
+### 엔드포인트 {#endpoint}
+
+```
+DELETE /graph/v3/databases/{database}/tables/{table}
+```
+
+### 파라미터 {#parameters}
+
+| Location | Parameter     | Required | Description                                  |
+| -------- | ------------- | -------- | -------------------------------------------- |
+| Header   | Authorization | Optional | Authentication key (reserved for future use) |
+| Path     | database      | Required | Database name                                |
+| Path     | table         | Required | Table name                                   |
+
+### 응답 타입 {#response-type}
+
+204 No Content (응답 본문 없음)
+
+### 요청 예시 {#request-example}
+
+```bash
+curl -X DELETE \
+    "http://ab.example.com/graph/v3/databases/mydb/tables/follows" \
+    -H "Authorization: YOUR_API_KEY"
+```
+
+## 11. 별칭 목록 조회 {#11-list-aliases}
+
+데이터베이스 내 모든 별칭을 조회합니다.
+
+### 엔드포인트 {#endpoint}
+
+```
+GET /graph/v3/databases/{database}/aliases
+```
+
+### 파라미터 {#parameters}
+
+| Location | Parameter     | Required | Description                                  |
+| -------- | ------------- | -------- | -------------------------------------------- |
+| Header   | Authorization | Optional | Authentication key (reserved for future use) |
+| Path     | database      | Required | Database name                                |
+
+### 응답 타입 {#response-type}
+
+`List<`[AliasDescriptor](#aliasdescriptor)`>` - 별칭 목록
+
+### 요청 예시 {#request-example}
+
+```bash
+curl -X GET \
+    "http://ab.example.com/graph/v3/databases/mydb/aliases" \
+    -H "Authorization: YOUR_API_KEY"
+```
+
+## 12. 별칭 조회 {#12-get-alias}
+
+이름으로 단일 별칭을 조회합니다.
+
+### 엔드포인트 {#endpoint}
+
+```
+GET /graph/v3/databases/{database}/aliases/{alias}
+```
+
+### 파라미터 {#parameters}
+
+| Location | Parameter     | Required | Description                                  |
+| -------- | ------------- | -------- | -------------------------------------------- |
+| Header   | Authorization | Optional | Authentication key (reserved for future use) |
+| Path     | database      | Required | Database name                                |
+| Path     | alias         | Required | Alias name                                   |
+
+### 응답 타입 {#response-type}
+
+[AliasDescriptor](#aliasdescriptor) - 별칭 정보
+
+찾을 수 없는 경우 404를 반환합니다.
+
+### 요청 예시 {#request-example}
+
+```bash
+curl -X GET \
+    "http://ab.example.com/graph/v3/databases/mydb/aliases/friends" \
+    -H "Authorization: YOUR_API_KEY"
+```
+
+### 응답 예시 {#response-example}
+
+```json
+{
+  "tenant": "default",
+  "database": "mydb",
+  "alias": "friends",
+  "table": "follows",
+  "active": true,
+  "comment": "Alias for follows",
+  "revision": 1,
+  "createdAt": 1700000000000,
+  "createdBy": "admin",
+  "updatedAt": 1700000000000,
+  "updatedBy": "admin"
+}
+```
+
+## 13. 별칭 생성 {#13-create-alias}
+
+새로운 별칭을 생성합니다.
+
+### 엔드포인트 {#endpoint}
+
+```
+POST /graph/v3/databases/{database}/aliases
+```
+
+### 파라미터 {#parameters}
+
+| Location | Parameter     | Required | Description                                  |
+| -------- | ------------- | -------- | -------------------------------------------- |
+| Header   | Authorization | Optional | Authentication key (reserved for future use) |
+| Path     | database      | Required | Database name                                |
+| Body     | alias         | Required | Alias name                                   |
+| Body     | table         | Required | Target table name (same database only)       |
+| Body     | comment       | Required | Alias description                            |
+
+### 요청 본문 {#request-body}
+
+[AliasCreateRequest](#aliascreaterequest) - 별칭 생성 페이로드
+
+### 응답 타입 {#response-type}
+
+[AliasDescriptor](#aliasdescriptor) - 생성된 별칭 정보
+
+### 요청 예시 {#request-example}
+
+```bash
+curl -X POST \
+    "http://ab.example.com/graph/v3/databases/mydb/aliases" \
+    -H "Authorization: YOUR_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "alias": "friends",
+      "table": "follows",
+      "comment": "Alias for follows"
+    }'
+```
+
+## 14. 별칭 수정 {#14-update-alias}
+
+기존 별칭을 수정합니다.
+
+### 엔드포인트 {#endpoint}
+
+```
+PUT /graph/v3/databases/{database}/aliases/{alias}
+```
+
+### 파라미터 {#parameters}
+
+| Location | Parameter     | Required | Description                                  |
+| -------- | ------------- | -------- | -------------------------------------------- |
+| Header   | Authorization | Optional | Authentication key (reserved for future use) |
+| Path     | database      | Required | Database name                                |
+| Path     | alias         | Required | Alias name                                   |
+| Body     | active        | Optional | Whether the alias is active                  |
+| Body     | table         | Optional | Target table name                            |
+| Body     | comment       | Optional | Alias description                            |
+
+### 요청 본문 {#request-body}
+
+[AliasUpdateRequest](#aliasupdaterequest) - 별칭 수정 페이로드
+
+### 응답 타입 {#response-type}
+
+[AliasDescriptor](#aliasdescriptor) - 업데이트된 별칭 정보
+
+### 요청 예시 {#request-example}
+
+```bash
+curl -X PUT \
+    "http://ab.example.com/graph/v3/databases/mydb/aliases/friends" \
+    -H "Authorization: YOUR_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "active": false,
+      "comment": "Deactivated alias"
+    }'
+```
+
+## 15. 별칭 삭제 {#15-delete-alias}
+
+기존 별칭을 삭제합니다.
+
+<Aside type="note">별칭은 삭제 전에 비활성화(`active: false`) 상태여야 합니다.</Aside>
+
+### 엔드포인트 {#endpoint}
+
+```
+DELETE /graph/v3/databases/{database}/aliases/{alias}
+```
+
+### 파라미터 {#parameters}
+
+| Location | Parameter     | Required | Description                                  |
+| -------- | ------------- | -------- | -------------------------------------------- |
+| Header   | Authorization | Optional | Authentication key (reserved for future use) |
+| Path     | database      | Required | Database name                                |
+| Path     | alias         | Required | Alias name                                   |
+
+### 응답 타입 {#response-type}
+
+204 No Content (응답 본문 없음)
+
+### 요청 예시 {#request-example}
+
+```bash
+curl -X DELETE \
+    "http://ab.example.com/graph/v3/databases/mydb/aliases/friends" \
+    -H "Authorization: YOUR_API_KEY"
+```
+
+## 데이터 모델 {#data-model}
+
+### DatabaseDescriptor {#databasedescriptor}
+
+데이터베이스 정보 페이로드입니다.
+
+```kotlin
+data class DatabaseDescriptor(
+    val tenant: String,       // Tenant name
+    val database: String,     // Database name
+    val active: Boolean,      // Whether the database is active
+    val comment: String,      // Database description
+    val revision: Long,       // Revision number
+    val createdAt: Long,      // Creation timestamp
+    val createdBy: String,    // Creator
+    val updatedAt: Long,      // Last update timestamp
+    val updatedBy: String,    // Last updater
+)
+```
+
+### TableDescriptor {#tabledescriptor}
+
+테이블 정보 페이로드입니다. 두 가지 타입(edge와 multiEdge)을 지원합니다.
+
+#### TableDescriptor.Edge {#tabledescriptoredge}
+
+```kotlin
+data class TableDescriptor.Edge(
+    val type: String = "edge",     // Table type discriminator
+    val tenant: String,            // Tenant name
+    val database: String,          // Database name
+    val table: String,             // Table name
+    val schema: ModelSchema.Edge,  // Edge schema definition
+    val storage: String,           // Storage URI (`datastore://<namespace>/<table>`)
+    val mode: MutationMode,        // Mutation mode (SYNC, ASYNC, DROP)
+    val active: Boolean,           // Whether the table is active
+    val comment: String,           // Table description
+    val revision: Long,            // Revision number
+    val createdAt: Long,           // Creation timestamp
+    val createdBy: String,         // Creator
+    val updatedAt: Long,           // Last update timestamp
+    val updatedBy: String,         // Last updater
+)
+```
+
+#### TableDescriptor.MultiEdge {#tabledescriptormultiedge}
+
+```kotlin
+data class TableDescriptor.MultiEdge(
+    val type: String = "multiEdge",     // Table type discriminator
+    val tenant: String,                 // Tenant name
+    val database: String,               // Database name
+    val table: String,                  // Table name
+    val schema: ModelSchema.MultiEdge,  // MultiEdge schema definition
+    val storage: String,                // Storage URI (`datastore://<namespace>/<table>`)
+    val mode: MutationMode,             // Mutation mode (SYNC, ASYNC, DROP)
+    val active: Boolean,                // Whether the table is active
+    val comment: String,                // Table description
+    val revision: Long,                 // Revision number
+    val createdAt: Long,                // Creation timestamp
+    val createdBy: String,              // Creator
+    val updatedAt: Long,                // Last update timestamp
+    val updatedBy: String,              // Last updater
+)
+```
+
+### AliasDescriptor {#aliasdescriptor}
+
+별칭 정보 페이로드입니다.
+
+```kotlin
+data class AliasDescriptor(
+    val tenant: String,       // Tenant name
+    val database: String,     // Database name
+    val alias: String,        // Alias name
+    val table: String,        // Target table name
+    val active: Boolean,      // Whether the alias is active
+    val comment: String,      // Alias description
+    val revision: Long,       // Revision number
+    val createdAt: Long,      // Creation timestamp
+    val createdBy: String,    // Creator
+    val updatedAt: Long,      // Last update timestamp
+    val updatedBy: String,    // Last updater
+)
+```
+
+### ModelSchema.Edge {#modelschemaedge}
+
+엣지 스키마 정의. `type` 구분자는 요청에서는 `"EDGE"`이고, 응답에서는 `"edge"`입니다.
+
+```kotlin
+data class ModelSchema.Edge(
+    val type: String,                               // "EDGE" (request) / "edge" (response)
+    val source: Field,                              // Source vertex field
+    val target: Field,                              // Target vertex field
+    val properties: List<StructField> = emptyList(),// Edge properties
+    val direction: DirectionType,                   // Direction type (OUT, IN, BOTH)
+    val indexes: List<Index> = emptyList(),          // Index definitions
+    val groups: List<Group> = emptyList(),            // Group definitions
+)
+```
+
+### ModelSchema.MultiEdge {#modelschemamultiedge}
+
+MultiEdge 스키마 정의. 동일한 소스-타겟 쌍 사이에 여러 엣지를 지원하며, `id` 필드로 구분합니다. `type` 구분자는 요청에서는 `"MULTI_EDGE"`이고, 응답에서는 `"multiEdge"`입니다.
+
+```kotlin
+data class ModelSchema.MultiEdge(
+    val type: String,                               // "MULTI_EDGE" (request) / "multiEdge" (response)
+    val id: Field,                                  // Edge identifier field (distinguishes multiple edges)
+    val source: Field,                              // Source vertex field
+    val target: Field,                              // Target vertex field
+    val properties: List<StructField> = emptyList(),// Edge properties
+    val direction: DirectionType,                   // Direction type (OUT, IN, BOTH)
+    val indexes: List<Index> = emptyList(),          // Index definitions
+    val groups: List<Group> = emptyList(),            // Group definitions
+)
+```
+
+### 필드 {#field}
+
+버텍스 필드 정의. `type` 값은 JSON에서 소문자입니다 (예: `"string"`, `"long"`).
+
+```kotlin
+data class Field(
+    val type: PrimitiveType,  // Data type (JSON: lowercase, e.g., "string", "long")
+    val comment: String,      // Field description
+)
+```
+
+### StructField {#structfield}
+
+프로퍼티 필드 정의. `type` 값은 JSON에서 소문자입니다 (예: `"int"`, `"long"`).
+
+```kotlin
+data class StructField(
+    val name: String,         // Field name
+    val type: PrimitiveType,  // Data type (JSON: lowercase, e.g., "int", "long")
+    val comment: String,      // Field description
+    val nullable: Boolean,    // Whether the field is nullable
+)
+```
+
+### 인덱스 {#index}
+
+인덱스 정의.
+
+```kotlin
+data class Index(
+    val index: String,                              // Index name
+    val fields: List<IndexField>,                   // Indexed fields with sort order
+    val comment: String = "",                       // Index description
+)
+```
+
+### 인덱스 필드 정의. {#indexfield}
+
+그룹
+
+```kotlin
+data class IndexField(
+    val field: String,  // Field name
+    val order: Order,   // Sort order (ASC, DESC)
+)
+```
+
+### 집계 쿼리를 위한 그룹 정의. {#group}
+
+데이터베이스 생성 요청
+
+```kotlin
+data class Group(
+    val group: String,                              // Group name
+    val type: GroupType,                            // Aggregation type (SUM, COUNT)
+    val fields: List<GroupField>,                   // Group key fields
+    val valueField: String = "-",                   // Value field name
+    val comment: String = "",                       // Group description
+    val directionType: DirectionType = BOTH,        // Direction type
+    val ttl: Long = -1,                             // Time-to-live in milliseconds (-1 = no expiry)
+)
+```
+
+### 데이터베이스 생성 요청 페이로드. {#databasecreaterequest}
+
+데이터베이스 업데이트 요청
+
+```kotlin
+data class DatabaseCreateRequest(
+    val database: String,     // Database name
+    val comment: String,      // Database description
+)
+```
+
+### 데이터베이스 업데이트 요청 페이로드. {#databaseupdaterequest}
+
+테이블 생성 요청
+
+```kotlin
+data class DatabaseUpdateRequest(
+    val active: Boolean?,     // Whether the database is active (optional)
+    val comment: String?,     // Database description (optional)
+)
+```
+
+### 테이블 생성 요청 페이로드. {#tablecreaterequest}
+
+테이블 업데이트 요청
+
+```kotlin
+data class TableCreateRequest(
+    val table: String,             // Table name
+    val schema: ModelSchema,       // Schema definition (ModelSchema.Edge or ModelSchema.MultiEdge)
+    val storage: String,           // Storage URI (`datastore://<namespace>/<table>`)
+    val mode: MutationMode,        // Mutation mode (default: SYNC)
+    val comment: String,           // Table description
+)
+```
+
+### 테이블 업데이트 요청 페이로드.Page {#tableupdaterequest}
+
+테이블 업데이트 요청 페이로드.
+
+```kotlin
+data class TableUpdateRequest(
+    val active: Boolean?,          // Whether the table is active (optional)
+    val schema: ModelSchema?,      // Schema definition (optional, ModelSchema.Edge or ModelSchema.MultiEdge)
+    val mode: MutationMode?,       // Mutation mode (optional)
+    val comment: String?,          // Table description (optional)
+)
+```
+
+### AliasCreateRequest {#aliascreaterequest}
+
+별칭 생성 요청 페이로드.
+
+```kotlin
+data class AliasCreateRequest(
+    val alias: String,        // Alias name
+    val table: String,        // Target table name (same database only)
+    val comment: String,      // Alias description
+)
+```
+
+### AliasUpdateRequest {#aliasupdaterequest}
+
+별칭 업데이트 요청 페이로드.
+
+```kotlin
+data class AliasUpdateRequest(
+    val active: Boolean?,     // Whether the alias is active (optional)
+    val table: String?,       // Target table name (optional)
+    val comment: String?,     // Alias description (optional)
+)
+```
+
+### 열거형 {#enums}
+
+```kotlin
+enum class MutationMode { SYNC, ASYNC, DROP, DENY }
+enum class DirectionType { BOTH, OUT, IN }
+enum class PrimitiveType { BOOLEAN, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, STRING, OBJECT }
+enum class Order { ASC, DESC }
+enum class GroupType { SUM, COUNT }
+```
+
+<Aside type="note">
+  `PrimitiveType` 값은 JSON에서 **소문자**로 직렬화됩니다 (예: `"string"`, `"int"`,
+  `"long"`). 다른 모든 열거형은 대문자를 사용합니다 (예: `"SYNC"`, `"OUT"`).
+</Aside>
+
+### 유효성 검사 규칙 {#validation-rules}
+
+| Field                         | Rule                                                                 |
+| ----------------------------- | -------------------------------------------------------------------- |
+| Database / Table / Alias name | `^[a-zA-Z][a-zA-Z0-9_-]{0,63}$` — starts with a letter, max 64 chars |
+| Storage URI                   | `^datastore://[a-z_]+/[a-zA-Z0-9_]+$`                                |
+| Comment                       | Max 1000 characters                                                  |
+
+## V2 호환성 {#v2-compatibility}
+
+V3 API는 새로운 인터페이스로 기존 V2 DDL 서비스를 래핑합니다. 아래 표는 V2와 V3 용어 간의 매핑을 보여줍니다.
+
+### 용어 매핑 {#terminology-mapping}
+
+| V2 Term | V3 Term  | Description             |
+| ------- | -------- | ----------------------- |
+| Service | Database | Logical database        |
+| Label   | Table    | Table with edge schema  |
+| Alias   | Alias    | Table alias (unchanged) |
+
+### 레이블 타입 매핑 {#label-type-mapping}
+
+| V2 LabelType | V3 Table Type | Conversion                          |
+| ------------ | ------------- | ----------------------------------- |
+| INDEXED      | edge          | Bidirectional                       |
+| MULTI_EDGE   | multiEdge     | Bidirectional                       |
+| HASH         | edge          | One-way (V2 to V3 only, deprecated) |
+
+### API 엔드포인트 매핑 {#api-endpoint-mapping}
+
+| V2 Endpoint                                           | V3 Endpoint                                             |
+| ----------------------------------------------------- | ------------------------------------------------------- |
+| `GET /graph/v2/services`                              | `GET /graph/v3/databases`                               |
+| `GET /graph/v2/services/{service}`                    | `GET /graph/v3/databases/{database}`                    |
+| `POST /graph/v2/services/{service}`                   | `POST /graph/v3/databases`                              |
+| `PUT /graph/v2/services/{service}`                    | `PUT /graph/v3/databases/{database}`                    |
+| `DELETE /graph/v2/services/{service}`                 | `DELETE /graph/v3/databases/{database}`                 |
+| `GET /graph/v2/services/{service}/labels`             | `GET /graph/v3/databases/{database}/tables`             |
+| `GET /graph/v2/services/{service}/labels/{label}`     | `GET /graph/v3/databases/{database}/tables/{table}`     |
+| `POST /graph/v2/services/{service}/labels/{label}`    | `POST /graph/v3/databases/{database}/tables`            |
+| `PUT /graph/v2/services/{service}/labels/{label}`     | `PUT /graph/v3/databases/{database}/tables/{table}`     |
+| `DELETE /graph/v2/services/{service}/labels/{label}`  | `DELETE /graph/v3/databases/{database}/tables/{table}`  |
+| `GET /graph/v2/services/{service}/aliases`            | `GET /graph/v3/databases/{database}/aliases`            |
+| `GET /graph/v2/services/{service}/aliases/{alias}`    | `GET /graph/v3/databases/{database}/aliases/{alias}`    |
+| `POST /graph/v2/services/{service}/aliases/{alias}`   | `POST /graph/v3/databases/{database}/aliases`           |
+| `PUT /graph/v2/services/{service}/aliases/{alias}`    | `PUT /graph/v3/databases/{database}/aliases/{alias}`    |
+| `DELETE /graph/v2/services/{service}/aliases/{alias}` | `DELETE /graph/v3/databases/{database}/aliases/{alias}` |
+
+### MutationMode 매핑 {#mutationmode-mapping}
+
+| V2 Mode | V3 Mode | Description                            |
+| ------- | ------- | -------------------------------------- |
+| SYNC    | SYNC    | Synchronous mutation                   |
+| ASYNC   | ASYNC   | Asynchronous mutation                  |
+| IGNORE  | DROP    | Drop mutations silently                |
+| -       | DENY    | Deny mutations (V3 only, throws error) |
+
+### V3 별칭 제약 조건 {#v3-alias-constraints}
+
+V3 별칭은 동일한 데이터베이스 내의 테이블만 참조할 수 있습니다. V2에서 `database.table` 형식으로 지원되던 크로스-데이터베이스 별칭은 V3에서 사용할 수 없습니다.

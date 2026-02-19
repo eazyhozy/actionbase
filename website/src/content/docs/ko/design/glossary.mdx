@@ -1,0 +1,71 @@
+---
+title: 용어집
+description: Actionbase 문서에서 사용되는 주요 용어
+sidebar:
+  order: 6
+translated-by-kanana-2: true
+---
+
+Actionbase 문서에서 사용되는 주요 용어.
+
+## 스키마 버전 매핑 {#schema-version-mapping}
+
+v2와 v3는 거의 1:1로 매핑됩니다.
+
+| v2 (Current) | v3 (Future) | Description                   |
+| ------------ | ----------- | ----------------------------- |
+| service      | database    | Namespace for grouping tables |
+| label        | table       | Edge schema definition        |
+| src          | source      | Who performed the interaction |
+| tgt          | target      | What received the interaction |
+| ts           | version     | Timestamp for ordering        |
+| fields       | properties  | Edge attributes               |
+| dirType      | direction   | Direction type                |
+| indices      | indexes     | Query indexes                 |
+| desc         | comment     | Description                   |
+
+- **스키마 API**: v2 — v3로 마이그레이션
+- **쿼리/뮤테이션 API**: v3
+
+## 데이터 모델 {#data-model}
+
+| Term            | Description                                                    |
+| --------------- | -------------------------------------------------------------- |
+| **Edge**        | A relationship representing a user interaction                 |
+| **Source**      | Who — the entity performing the interaction (e.g., user_id)    |
+| **Target**      | What — the entity receiving the interaction (e.g., product_id) |
+| **Properties**  | Attributes on an edge (e.g., `created_at`)                     |
+| **Unique-edge** | Edge identified by (source, target) pair                       |
+| **Multi-edge**  | Edge identified by ID; multiple per (source, target)           |
+| **Index**       | Pre-computed structure for querying                            |
+| **Alias**       | Alternative name for a label/table                             |
+
+## 쿼리와 뮤테이션 {#query-and-mutation}
+
+| Term          | Description                                                   |
+| ------------- | ------------------------------------------------------------- |
+| **COUNT**     | Query returning number of edges                               |
+| **GET**       | Query retrieving edge by source and target                    |
+| **SCAN**      | Query scanning edges using pre-computed index                 |
+| **Start**     | Starting node for SCAN/COUNT; source when OUT, target when IN |
+| **Direction** | `OUT` (source→target) or `IN` (target←source)                 |
+| **Range**     | Index-based scan boundaries at storage level                  |
+| **Filter**    | Post-retrieval filtering at application level                 |
+| **Version**   | Client timestamp (ms/ns) for concurrency and event ordering   |
+| **Offset**    | Encoded pagination position                                   |
+| **Limit**     | Max results (25 recommended)                                  |
+
+## 쓰기 시점 최적화 {#write-time-optimization}
+
+| Term            | Description                              |
+| --------------- | ---------------------------------------- |
+| **EdgeState**   | Current edge state, accessed by GET      |
+| **EdgeIndex**   | Sorted index entries, accessed by SCAN   |
+| **EdgeCounter** | Pre-computed counters, accessed by COUNT |
+
+## 데이터 파이프라인 {#data-pipeline}
+
+| Term    | Description                             |
+| ------- | --------------------------------------- |
+| **WAL** | Write-Ahead Log for durability/recovery |
+| **CDC** | Change Data Capture for downstream sync |
