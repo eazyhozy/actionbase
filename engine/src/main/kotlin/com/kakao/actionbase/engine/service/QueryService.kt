@@ -171,7 +171,13 @@ class QueryService(
                     version = row[EdgeField.VERSION] as Long,
                     source = source,
                     target = target,
-                    properties = row.data.filterKeys { it !in EDGE_FIELDS },
+                    // Backticks are an internal disambiguation for the V3 DataFrame row map.
+                    // EdgePayload.properties is its own namespace separate from the
+                    // version/source/target fields, so the natural names are safe to use here.
+                    properties =
+                        row.data
+                            .filterKeys { it !in EDGE_FIELDS }
+                            .mapKeys { (k, _) -> unescapeV3Keyword(k) },
                     context = emptyMap(),
                 )
             }
@@ -216,5 +222,9 @@ class QueryService(
                 count = 0L,
                 context = emptyMap(),
             )
+
+        internal fun escapeV3Keyword(fieldName: String): String = if (fieldName in EDGE_FIELDS) "`$fieldName`" else EdgeField.toV3(fieldName)
+
+        private fun unescapeV3Keyword(name: String): String = name.removeSurrounding("`")
     }
 }

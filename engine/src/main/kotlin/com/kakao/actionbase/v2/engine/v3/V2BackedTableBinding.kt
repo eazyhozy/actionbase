@@ -5,7 +5,6 @@ import com.kakao.actionbase.v2.core.types.DataType as V2DataType
 import com.kakao.actionbase.v2.engine.sql.DataFrame as V2DataFrame
 
 import com.kakao.actionbase.core.Constants
-import com.kakao.actionbase.core.edge.EdgeField
 import com.kakao.actionbase.core.edge.MutationKey
 import com.kakao.actionbase.core.edge.mapper.EdgeGroupRecordMapper
 import com.kakao.actionbase.core.edge.mapper.EdgeRecordMapper
@@ -24,6 +23,7 @@ import com.kakao.actionbase.core.types.PrimitiveType
 import com.kakao.actionbase.engine.binding.MutationRecordsSummary
 import com.kakao.actionbase.engine.binding.TableBinding
 import com.kakao.actionbase.engine.metadata.MutationMode
+import com.kakao.actionbase.engine.service.QueryService.Companion.escapeV3Keyword
 import com.kakao.actionbase.engine.sql.DataFrame
 import com.kakao.actionbase.engine.sql.Row
 import com.kakao.actionbase.engine.storage.StorageOpCollector
@@ -544,12 +544,20 @@ class V2BackedTableBinding(
     }
 }
 
+/**
+ * Converts a V2 DataFrame to a V3 DataFrame.
+ *
+ * User property fields whose names match V3 system fields (`version`, `source`, `target`,
+ * `direction`) are wrapped in backticks (e.g. `` `version` ``) so they do not shadow the
+ * edge metadata at those keys. This is a workaround; remove it once V3 DataFrame supports
+ * a nested row form that gives user properties their own namespace.
+ */
 internal fun V2DataFrame.toV3(total: Long? = null): DataFrame {
     val v3Schema =
         com.kakao.actionbase.core.metadata.common.StructType(
             schema.fields.map { field ->
                 com.kakao.actionbase.core.metadata.common.StructField(
-                    name = EdgeField.toV3(field.name),
+                    name = escapeV3Keyword(field.name),
                     type = field.type.toV3PrimitiveType(),
                     comment = field.desc,
                     nullable = field.isNullable,
@@ -562,7 +570,7 @@ internal fun V2DataFrame.toV3(total: Long? = null): DataFrame {
                 data =
                     schema.fieldNames
                         .mapIndexed { i, name ->
-                            EdgeField.toV3(name) to row.array[i]
+                            escapeV3Keyword(name) to row.array[i]
                         }.toMap(),
                 schema = v3Schema,
             )
