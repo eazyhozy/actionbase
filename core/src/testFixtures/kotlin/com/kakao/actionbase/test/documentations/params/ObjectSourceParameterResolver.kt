@@ -25,7 +25,11 @@ class ObjectSourceParameterResolver(
     override fun supportsParameter(
         parameterContext: ParameterContext,
         extensionContext: ExtensionContext,
-    ): Boolean = parameterContext.index < parameterNames.size
+    ): Boolean {
+        val testMethod = extensionContext.testMethod.orElse(null) ?: return false
+        if (parameterContext.declaringExecutable != testMethod) return false
+        return parameterContext.index < parameterNames.size
+    }
 
     override fun resolveParameter(
         parameterContext: ParameterContext,
