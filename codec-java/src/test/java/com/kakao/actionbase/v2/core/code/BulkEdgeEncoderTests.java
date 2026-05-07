@@ -22,7 +22,7 @@ public class BulkEdgeEncoderTests {
   ObjectMapper objectMapper = new ObjectMapper();
 
   static final String labelJsonString =
-      "{\"name\":\"gift.like_product_v1\",\"desc\":\"Gift Wish\",\"type\":\"INDEXED\",\"schema\":{\"src\":{\"type\":\"LONG\"},\"tgt\":{\"type\":\"STRING\"},\"fields\":[{\"name\":\"created_at\",\"type\":\"LONG\",\"nullable\":false},{\"name\":\"permission\",\"type\":\"STRING\",\"nullable\":true},{\"name\":\"memo\",\"type\":\"STRING\",\"nullable\":true}]},\"dirType\":\"BOTH\",\"storage\":\"hbase_sandbox\",\"indices\":[{\"id\":0,\"name\":\"created_at_desc\",\"fields\":[{\"name\":\"created_at\",\"order\":\"DESC\"}]}],\"caches\":[{\"cache\":\"top_created_at\",\"fields\":[{\"name\":\"created_at\",\"order\":\"DESC\"}],\"limit\":100}],\"event\":false,\"readOnly\":false}";
+      "{\"name\":\"gift.like_product_v1\",\"desc\":\"Gift Wish\",\"type\":\"INDEXED\",\"schema\":{\"src\":{\"type\":\"LONG\"},\"tgt\":{\"type\":\"STRING\"},\"fields\":[{\"name\":\"created_at\",\"type\":\"LONG\",\"nullable\":false},{\"name\":\"permission\",\"type\":\"STRING\",\"nullable\":true},{\"name\":\"memo\",\"type\":\"STRING\",\"nullable\":true}]},\"dirType\":\"BOTH\",\"storage\":\"hbase_sandbox\",\"indices\":[{\"id\":0,\"name\":\"created_at_desc\",\"fields\":[{\"name\":\"created_at\",\"order\":\"DESC\"}]}],\"caches\":[{\"cache\":\"top_created_at\",\"fields\":[{\"field\":\"created_at\",\"order\":\"DESC\"}],\"limit\":100}],\"event\":false,\"readOnly\":false}";
   static final String edgeJsonString =
       "{\"active\":true,\"ts\":1,\"src\":123,\"tgt\":\"Coffee10\",\"props\":{\"created_at\":1, \"permission\":\"public\", \"memo\":\"for good morning\"}}";
 
@@ -41,7 +41,7 @@ public class BulkEdgeEncoderTests {
     EdgeEncoderFactory factory = new EdgeEncoderFactory(1);
     EdgeEncoder<byte[]> encoder = factory.bytesKeyValueEdgeEncoder;
 
-    List<KeyFieldValue<byte[]>> encodedEdges =
+    List<TypedKeyFieldValue<byte[]>> encodedEdges =
         BulkEdgeEncoder.bulkEncodeAll(encoder, edge, newLabel);
 
     // 1 hash edge + 2 indexed (OUT/IN) + 2 cache (OUT/IN) + 2 counter (OUT/IN)
@@ -54,7 +54,7 @@ public class BulkEdgeEncoderTests {
 
     int cacheRowCount = 0;
 
-    for (KeyFieldValue<byte[]> kv : encodedEdges) {
+    for (TypedKeyFieldValue<byte[]> kv : encodedEdges) {
       // Cache rows are the only ones carrying a non-null qualifier in the bytes encoder;
       // round-trip via V3 decoder is covered by V2MultiEdgeBulkLoadTest.testEdgeCache*.
       if (kv.field != null) {
@@ -64,7 +64,7 @@ public class BulkEdgeEncoderTests {
       assertNull(kv.field);
 
       if (kv.key.length != 0) {
-        DecodedEdge decodedEdge = DecodedEdge.from(kv, Collections.emptyMap());
+        DecodedEdge decodedEdge = DecodedEdge.from(KeyFieldValue.from(kv), Collections.emptyMap());
         assertEquals(newLabel.getId(), decodedEdge.getLabelId());
         assertEquals(expectedEdge.getTs(), decodedEdge.getTs());
         if (decodedEdge.getType() == EncodedEdgeType.HASH_EDGE_TYPE) {
@@ -113,7 +113,7 @@ public class BulkEdgeEncoderTests {
     EdgeEncoderFactory factory = new EdgeEncoderFactory(1);
     EdgeEncoder<byte[]> encoder = factory.bytesKeyValueEdgeEncoder;
 
-    List<KeyFieldValue<byte[]>> encodedEdges =
+    List<TypedKeyFieldValue<byte[]>> encodedEdges =
         BulkEdgeEncoder.bulkEncodeAll(encoder, edge, newLabel);
 
     // 1 hash + 1 indexed(OUT) + 1 cache(OUT) + 1 counter(OUT)
@@ -132,7 +132,7 @@ public class BulkEdgeEncoderTests {
     EdgeEncoderFactory factory = new EdgeEncoderFactory(1);
     EdgeEncoder<byte[]> encoder = factory.bytesKeyValueEdgeEncoder;
 
-    List<KeyFieldValue<byte[]>> encodedEdges =
+    List<TypedKeyFieldValue<byte[]>> encodedEdges =
         BulkEdgeEncoder.bulkEncodeAll(encoder, edge, newLabel);
 
     // 1 hash + 1 indexed(IN) + 1 cache(IN) + 1 counter(IN)
@@ -152,7 +152,7 @@ public class BulkEdgeEncoderTests {
     EdgeEncoderFactory factory = new EdgeEncoderFactory(1);
     EdgeEncoder<byte[]> encoder = factory.bytesKeyValueEdgeEncoder;
 
-    List<KeyFieldValue<byte[]>> encodedEdges =
+    List<TypedKeyFieldValue<byte[]>> encodedEdges =
         BulkEdgeEncoder.bulkEncodeAll(encoder, edge, newLabel);
 
     // 1 hash + 2 counter (no indexed, no cache)
@@ -171,7 +171,7 @@ public class BulkEdgeEncoderTests {
     EdgeEncoderFactory factory = new EdgeEncoderFactory(1);
     EdgeEncoder<byte[]> encoder = factory.bytesKeyValueEdgeEncoder;
 
-    List<KeyFieldValue<byte[]>> encodedEdges =
+    List<TypedKeyFieldValue<byte[]>> encodedEdges =
         BulkEdgeEncoder.bulkEncodeAll(encoder, edge, newLabel);
 
     // Inactive edge on an INDEXED label with caches: only the hash tombstone is emitted.
@@ -191,7 +191,7 @@ public class BulkEdgeEncoderTests {
     EdgeEncoderFactory factory = new EdgeEncoderFactory(1);
     EdgeEncoder<byte[]> encoder = factory.bytesKeyValueEdgeEncoder;
 
-    List<KeyFieldValue<byte[]>> encodedEdges =
+    List<TypedKeyFieldValue<byte[]>> encodedEdges =
         BulkEdgeEncoder.bulkEncodeAll(encoder, edge, newLabel);
 
     // 1 item for the hash edge.
@@ -206,7 +206,7 @@ public class BulkEdgeEncoderTests {
   void testIndexedLabelWithoutCachesProducesNoCacheRows() throws JsonProcessingException {
     String labelJsonWithoutCaches =
         labelJsonString.replaceAll(
-            ",\"caches\":\\[\\{\"cache\":\"top_created_at\",\"fields\":\\[\\{\"name\":\"created_at\",\"order\":\"DESC\"}],\"limit\":100}]",
+            ",\"caches\":\\[\\{\"cache\":\"top_created_at\",\"fields\":\\[\\{\"field\":\"created_at\",\"order\":\"DESC\"}],\"limit\":100}]",
             "");
     assertFalse(labelJsonWithoutCaches.contains("caches"));
 
@@ -218,7 +218,8 @@ public class BulkEdgeEncoderTests {
     EdgeEncoderFactory factory = new EdgeEncoderFactory(1);
     EdgeEncoder<byte[]> encoder = factory.bytesKeyValueEdgeEncoder;
 
-    List<KeyFieldValue<byte[]>> encodedEdges = BulkEdgeEncoder.bulkEncodeAll(encoder, edge, label);
+    List<TypedKeyFieldValue<byte[]>> encodedEdges =
+        BulkEdgeEncoder.bulkEncodeAll(encoder, edge, label);
 
     // 1 hash + 2 indexed(OUT/IN) + 2 counter(OUT/IN) — no cache rows.
     assertEquals(5, encodedEdges.size());
