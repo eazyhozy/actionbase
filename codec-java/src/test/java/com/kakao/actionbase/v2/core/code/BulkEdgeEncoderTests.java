@@ -98,6 +98,15 @@ public class BulkEdgeEncoderTests {
     }
 
     assertEquals(2, cacheRowCount, "expected 2 cache rows (OUT/IN)");
+
+    // No dimension configured on this cache → dimensionValue must be null on cache rows.
+    encodedEdges.stream()
+        .filter(kv -> kv.getEncodedEdgeType() == EncodedEdgeType.EDGE_CACHE_TYPE)
+        .forEach(
+            kv ->
+                assertNull(
+                    kv.getDimensionValue(),
+                    "dimensionValue should be null when cache has no dimension config"));
   }
 
   @Test
@@ -196,6 +205,235 @@ public class BulkEdgeEncoderTests {
 
     // 1 item for the hash edge.
     assertEquals(1, encodedEdges.size());
+  }
+
+  /**
+   * dimension whitelist on a cache field: edges whose value matches the whitelist still produce
+   * cache rows alongside the hash/indexed/counter rows.
+   */
+  @Test
+  void testCacheDimensionWhitelistKeepsMatchingEdge() throws JsonProcessingException {
+    String labelWithDimension =
+        labelJsonString.replace(
+            "\"caches\":[{\"cache\":\"top_created_at\",\"fields\":[{\"field\":\"created_at\",\"order\":\"DESC\"}],\"limit\":100}]",
+            "\"caches\":[{\"cache\":\"public_top_created_at\",\"fields\":[{\"field\":\"permission\",\"order\":\"ASC\",\"dimension\":[\"others\"]},{\"field\":\"created_at\",\"order\":\"DESC\"}],\"limit\":100}]");
+    LabelDTO label = objectMapper.readValue(labelWithDimension, LabelDTO.class);
+    LabelDTO newLabel =
+        label.copy("gift.like_product_v1_20240402_132500", "gift.like_product_v1_20240402_132500");
+
+    String othersEdgeJson =
+        edgeJsonString.replace("\"permission\":\"public\"", "\"permission\":\"others\"");
+    BulkLoadEdge edge = objectMapper.readValue(othersEdgeJson, BulkLoadEdge.class);
+
+    EdgeEncoderFactory factory = new EdgeEncoderFactory(1);
+    EdgeEncoder<byte[]> encoder = factory.bytesKeyValueEdgeEncoder;
+
+    List<TypedKeyFieldValue<byte[]>> encodedEdges =
+        BulkEdgeEncoder.bulkEncodeAll(encoder, edge, newLabel);
+
+    // permission="others" matches dimension → 1 hash + 2 indexed + 2 cache + 2 counter
+    assertEquals(7, encodedEdges.size());
+    long cacheRows =
+        encodedEdges.stream()
+            .filter(kv -> kv.getEncodedEdgeType() == EncodedEdgeType.EDGE_CACHE_TYPE)
+            .count();
+    assertEquals(2, cacheRows);
+
+    // Matching cache rows must carry an encoded dimensionValue (non-null, non-empty).
+    encodedEdges.stream()
+        .filter(kv -> kv.getEncodedEdgeType() == EncodedEdgeType.EDGE_CACHE_TYPE)
+        .forEach(
+            kv -> {
+              assertNotNull(
+                  kv.getDimensionValue(),
+                  "dimensionValue should be encoded when cache field matches its dimension");
+              assertTrue(kv.getDimensionValue().length > 0, "dimensionValue should be non-empty");
+            });
+  }
+
+  /**
+   * dimension whitelist on a cache field: edges outside the whitelist are skipped at the cache
+   * layer, but the hash/indexed/counter rows are unaffected.
+   */
+  @Test
+  void testCacheDimensionWhitelistSkipsNonMatchingEdge() throws JsonProcessingException {
+    String labelWithDimension =
+        labelJsonString.replace(
+            "\"caches\":[{\"cache\":\"top_created_at\",\"fields\":[{\"field\":\"created_at\",\"order\":\"DESC\"}],\"limit\":100}]",
+            "\"caches\":[{\"cache\":\"public_top_created_at\",\"fields\":[{\"field\":\"permission\",\"order\":\"ASC\",\"dimension\":[\"others\"]},{\"field\":\"created_at\",\"order\":\"DESC\"}],\"limit\":100}]");
+    LabelDTO label = objectMapper.readValue(labelWithDimension, LabelDTO.class);
+    LabelDTO newLabel =
+        label.copy("gift.like_product_v1_20240402_132500", "gift.like_product_v1_20240402_132500");
+
+    String meEdgeJson =
+        edgeJsonString.replace("\"permission\":\"public\"", "\"permission\":\"me\"");
+    BulkLoadEdge edge = objectMapper.readValue(meEdgeJson, BulkLoadEdge.class);
+
+    EdgeEncoderFactory factory = new EdgeEncoderFactory(1);
+    EdgeEncoder<byte[]> encoder = factory.bytesKeyValueEdgeEncoder;
+
+    List<TypedKeyFieldValue<byte[]>> encodedEdges =
+        BulkEdgeEncoder.bulkEncodeAll(encoder, edge, newLabel);
+
+    // permission="me" outside dimension=["others"] → cache rows skipped, others kept
+    // 1 hash + 2 indexed + 0 cache + 2 counter
+    assertEquals(5, encodedEdges.size());
+    long cacheRows =
+        encodedEdges.stream()
+            .filter(kv -> kv.getEncodedEdgeType() == EncodedEdgeType.EDGE_CACHE_TYPE)
+            .count();
+    assertEquals(0, cacheRows);
+  }
+
+  /**
+   * Empty {@code dimension: []} is treated as equivalent to omitting the key — no filtering, no
+   * dimensionValue encoded. Any edge value passes through and cache rows carry a null
+   * dimensionValue.
+   */
+  @Test
+  void testCacheDimensionEmptyArrayBehavesAsNoFilter() throws JsonProcessingException {
+    String labelWithEmptyDimension =
+        labelJsonString.replace(
+            "\"caches\":[{\"cache\":\"top_created_at\",\"fields\":[{\"field\":\"created_at\",\"order\":\"DESC\"}],\"limit\":100}]",
+            "\"caches\":[{\"cache\":\"public_top_created_at\",\"fields\":[{\"field\":\"permission\",\"order\":\"ASC\",\"dimension\":[]},{\"field\":\"created_at\",\"order\":\"DESC\"}],\"limit\":100}]");
+    LabelDTO label = objectMapper.readValue(labelWithEmptyDimension, LabelDTO.class);
+    LabelDTO newLabel =
+        label.copy("gift.like_product_v1_20240402_132500", "gift.like_product_v1_20240402_132500");
+
+    BulkLoadEdge edge = objectMapper.readValue(edgeJsonString, BulkLoadEdge.class);
+
+    EdgeEncoderFactory factory = new EdgeEncoderFactory(1);
+    EdgeEncoder<byte[]> encoder = factory.bytesKeyValueEdgeEncoder;
+
+    List<TypedKeyFieldValue<byte[]>> encodedEdges =
+        BulkEdgeEncoder.bulkEncodeAll(encoder, edge, newLabel);
+
+    // dimension=[] acts as no filter → 1 hash + 2 indexed + 2 cache + 2 counter
+    assertEquals(7, encodedEdges.size());
+    encodedEdges.stream()
+        .filter(kv -> kv.getEncodedEdgeType() == EncodedEdgeType.EDGE_CACHE_TYPE)
+        .forEach(
+            kv ->
+                assertNull(
+                    kv.getDimensionValue(),
+                    "dimensionValue should be null when dimension is empty (no filter)"));
+  }
+
+  /**
+   * Two dimensioned fields define a 4-bucket grid: permission in {me, others} and memo in {a, b}.
+   *
+   * <pre>
+   * permission | memo | dimensionValue bytes
+   * -----------+------+--------------------------
+   * me         | a    | [enc(me)     | enc(a)]
+   * me         | b    | [enc(me)     | enc(b)]
+   * others     | a    | [enc(others) | enc(a)]
+   * others     | b    | [enc(others) | enc(b)]
+   * </pre>
+   *
+   * Verifies the encoder output that downstream per-dimension top-N relies on:
+   *
+   * <ol>
+   *   <li>each of the 4 (permission, memo) combinations produces a distinct dimensionValue tag,
+   *   <li>two edges with the same (permission, memo) but different non-dimensioned fields share the
+   *       same dimensionValue (stable group-by key), and
+   *   <li>the configured field order (permission first, memo second) is preserved in the byte
+   *       encoding -- same-permission siblings share a longer byte prefix than cross-permission
+   *       pairs.
+   * </ol>
+   */
+  @Test
+  void testCacheDimensionFourBucketsHaveDistinctOrderedTags() throws JsonProcessingException {
+    String labelTwoDim =
+        labelJsonString.replace(
+            "\"caches\":[{\"cache\":\"top_created_at\",\"fields\":[{\"field\":\"created_at\",\"order\":\"DESC\"}],\"limit\":100}]",
+            "\"caches\":[{\"cache\":\"perm_memo_top\",\"fields\":["
+                + "{\"field\":\"permission\",\"order\":\"ASC\",\"dimension\":[\"me\",\"others\"]},"
+                + "{\"field\":\"memo\",\"order\":\"ASC\",\"dimension\":[\"a\",\"b\"]},"
+                + "{\"field\":\"created_at\",\"order\":\"DESC\"}],\"limit\":100}]");
+    LabelDTO label = objectMapper.readValue(labelTwoDim, LabelDTO.class);
+    LabelDTO newLabel =
+        label.copy("gift.like_product_v1_20240402_132500", "gift.like_product_v1_20240402_132500");
+    EdgeEncoderFactory factory = new EdgeEncoderFactory(1);
+    EdgeEncoder<byte[]> encoder = factory.bytesKeyValueEdgeEncoder;
+
+    byte[] meA = dimValueOf(encoder, newLabel, "me", "a", 1);
+    byte[] meB = dimValueOf(encoder, newLabel, "me", "b", 1);
+    byte[] othersA = dimValueOf(encoder, newLabel, "others", "a", 1);
+    byte[] othersB = dimValueOf(encoder, newLabel, "others", "b", 1);
+
+    // (1) 4 buckets → 4 distinct dimensionValue tags.
+    assertFalse(Arrays.equals(meA, meB), "me/a vs me/b");
+    assertFalse(Arrays.equals(meA, othersA), "me/a vs others/a");
+    assertFalse(Arrays.equals(meA, othersB), "me/a vs others/b");
+    assertFalse(Arrays.equals(meB, othersA), "me/b vs others/a");
+    assertFalse(Arrays.equals(meB, othersB), "me/b vs others/b");
+    assertFalse(Arrays.equals(othersA, othersB), "others/a vs others/b");
+
+    // (2) Same bucket, different created_at → identical dimensionValue.
+    byte[] meARepeat = dimValueOf(encoder, newLabel, "me", "a", 999);
+    assertArrayEquals(
+        meA,
+        meARepeat,
+        "same-bucket edges must share dimensionValue regardless of non-dimensioned fields");
+
+    // (3) permission encoded before memo: same-permission pairs agree on a longer byte prefix
+    //     than cross-permission pairs.
+    int withinMe = commonPrefix(meA, meB);
+    int withinOthers = commonPrefix(othersA, othersB);
+    int crossPermission = commonPrefix(meA, othersA);
+    assertTrue(
+        withinMe > crossPermission,
+        "permission must be encoded first: withinMe="
+            + withinMe
+            + ", crossPermission="
+            + crossPermission);
+    assertTrue(
+        withinOthers > crossPermission,
+        "permission must be encoded first: withinOthers="
+            + withinOthers
+            + ", crossPermission="
+            + crossPermission);
+
+    // (4) ASC encoding sorts the 4 buckets in (permission, memo) lexicographic order:
+    //     me/a < me/b < others/a < others/b.
+    assertTrue(byteCompare(meA, meB) < 0, "me/a < me/b");
+    assertTrue(byteCompare(meB, othersA) < 0, "me/b < others/a");
+    assertTrue(byteCompare(othersA, othersB) < 0, "others/a < others/b");
+  }
+
+  private byte[] dimValueOf(
+      EdgeEncoder<byte[]> encoder, LabelDTO label, String permission, String memo, long createdAt)
+      throws JsonProcessingException {
+    String json =
+        edgeJsonString
+            .replace("\"permission\":\"public\"", "\"permission\":\"" + permission + "\"")
+            .replace("\"memo\":\"for good morning\"", "\"memo\":\"" + memo + "\"")
+            .replace("\"created_at\":1", "\"created_at\":" + createdAt);
+    BulkLoadEdge edge = objectMapper.readValue(json, BulkLoadEdge.class);
+    return BulkEdgeEncoder.bulkEncodeAll(encoder, edge, label).stream()
+        .filter(kv -> kv.getEncodedEdgeType() == EncodedEdgeType.EDGE_CACHE_TYPE)
+        .map(TypedKeyFieldValue::getDimensionValue)
+        .findFirst()
+        .orElseThrow(
+            () -> new AssertionError("no cache row emitted for " + permission + "/" + memo));
+  }
+
+  private static int commonPrefix(byte[] a, byte[] b) {
+    int n = Math.min(a.length, b.length);
+    for (int i = 0; i < n; i++) {
+      if (a[i] != b[i]) return i;
+    }
+    return n;
+  }
+
+  private static int byteCompare(byte[] a, byte[] b) {
+    int n = Math.min(a.length, b.length);
+    for (int i = 0; i < n; i++) {
+      int diff = (a[i] & 0xff) - (b[i] & 0xff);
+      if (diff != 0) return diff;
+    }
+    return a.length - b.length;
   }
 
   /**

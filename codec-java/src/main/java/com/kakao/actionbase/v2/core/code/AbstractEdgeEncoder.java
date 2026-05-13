@@ -251,12 +251,44 @@ public abstract class AbstractEdgeEncoder<T> implements EdgeEncoder<T> {
       int labelId,
       List<Cache> caches) {
     return caches.stream()
+        .filter(cache -> passesAllDimensions(cache, ts, src, tgt, props))
         .flatMap(
-            cache ->
-                dirType.getDirs().stream()
-                    .map(dir -> encodeCacheEdge(ts, src, tgt, props, dir, labelId, cache)))
+            cache -> {
+              T dimensionValue = encodeDimensionValue(cache, ts, src, tgt, props);
+
+              return dirType.getDirs().stream()
+                  .map(
+                      dir ->
+                          encodeCacheEdge(ts, src, tgt, props, dir, labelId, cache)
+                              .withDimensionValue(dimensionValue));
+            })
         .collect(Collectors.toList());
   }
+
+  private boolean passesAllDimensions(
+      Cache cache, long ts, Object src, Object tgt, Map<String, Object> props) {
+    return cache.getDimensionedFields().stream()
+        .allMatch(
+            field -> {
+              Object fieldValue = resolveFieldValue(field.getField(), ts, src, tgt, props);
+              return field.getDimension().contains(fieldValue);
+            });
+  }
+
+  private T encodeDimensionValue(
+      Cache cache, long ts, Object src, Object tgt, Map<String, Object> props) {
+    if (!cache.hasAnyDimension()) return null;
+
+    return encodeBufferAsT(
+        buffer -> {
+          for (Cache.Field field : cache.getDimensionedFields()) {
+            Object value = resolveFieldValue(field.getField(), ts, src, tgt, props);
+            buffer.encodeAny(value, field.getOrder());
+          }
+        });
+  }
+
+  protected abstract T encodeBufferAsT(Consumer<EdgeBuffer> block);
 
   // --- internal
 
