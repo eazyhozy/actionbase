@@ -15,7 +15,7 @@ import reactor.kotlin.test.test
 class WalSpec :
     StringSpec({
 
-        "all producers succeed, wal write succeed" {
+        "all producers succeed, wal write succeeds" {
 
             val mockWal1 = mockk<Producer>()
             every { mockWal1.produce(any()) } returns Mono.empty()

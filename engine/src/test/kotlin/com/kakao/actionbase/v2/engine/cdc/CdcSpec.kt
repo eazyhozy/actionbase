@@ -16,7 +16,7 @@ import reactor.kotlin.test.test
 class CdcSpec :
     StringSpec({
 
-        "all producers succeed, cdc write succeed" {
+        "all producers succeed, cdc write succeeds" {
 
             val mockWal1 = mockk<Producer>()
             every { mockWal1.produce(any()) } returns Mono.empty()
