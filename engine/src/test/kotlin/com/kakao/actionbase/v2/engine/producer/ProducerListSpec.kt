@@ -1,5 +1,6 @@
 package com.kakao.actionbase.v2.engine.producer
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.mockk.every
 import io.mockk.mockk
@@ -31,6 +32,12 @@ class ProducerListSpec :
             every { producer2.produce(message) } returns Mono.error(RuntimeException("mock error"))
 
             ProducerList(listOf(producer1, producer2)).produce(message).test().verifyError()
+        }
+
+        "empty producer list throws IllegalArgumentException" {
+            shouldThrow<IllegalArgumentException> {
+                ProducerList(emptyList())
+            }
         }
 
         "fanout works with more than two producers" {

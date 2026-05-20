@@ -9,6 +9,10 @@ import reactor.core.publisher.Mono
 class ProducerList(
     private val producers: List<Producer>,
 ) : Producer {
+    init {
+        require(producers.isNotEmpty())
+    }
+
     companion object {
         private val logger = getLogger()
     }
