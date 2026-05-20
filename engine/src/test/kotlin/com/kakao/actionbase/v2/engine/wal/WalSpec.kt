@@ -34,7 +34,7 @@ class WalSpec :
             wal.write(walLog).test().verifyComplete()
         }
 
-        "any producer fails, wal write failed" {
+        "any producer fails, wal write fails" {
 
             val mockWal1 = mockk<Producer>()
             every { mockWal1.produce(any()) } returns Mono.empty()

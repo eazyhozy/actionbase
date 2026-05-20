@@ -40,7 +40,7 @@ class CdcSpec :
             cdc.write(cdcLog).test().verifyComplete()
         }
 
-        "any producer fails, cdc write failed" {
+        "any producer fails, cdc write fails" {
 
             val mockWal1 = mockk<Producer>()
             every { mockWal1.produce(any()) } returns Mono.empty()
