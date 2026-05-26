@@ -49,7 +49,7 @@ class ServiceLabelEdgeControllerWarmUp(
         if (serverProperties.readOnly) {
             listOf(HttpMethod.GET)
         } else {
-            listOf(HttpMethod.POST, HttpMethod.PUT, HttpMethod.DELETE, HttpMethod.GET)
+            listOf(HttpMethod.POST, HttpMethod.GET, HttpMethod.PUT, HttpMethod.DELETE)
         }
 
     fun warmUpInfo(
@@ -64,8 +64,12 @@ class ServiceLabelEdgeControllerWarmUp(
         )
 
     override fun onApplicationEvent(event: ApplicationReadyEvent) {
+        // Round up warmUpConfig.count to the nearest multiple of allMethods.size.
+        val warmUpCount =
+            ((warmUpConfig.count + allMethods.size - 1) / allMethods.size) * allMethods.size
+
         Flux
-            .range(0, warmUpConfig.count)
+            .range(0, warmUpCount)
             .flatMap({ i ->
                 if (tokenAuthenticationFilter is TokenAuthenticationFilter) {
                     tokenAuthenticationFilter.warmUp()
@@ -75,10 +79,10 @@ class ServiceLabelEdgeControllerWarmUp(
                 }
                 val method = allMethods[i % allMethods.size]
                 val uri =
-                    if (method == HttpMethod.GET) {
-                        "/graph/v2/service/sys/label/info/edge?src=origin&tgt=warmup"
-                    } else {
+                    if (method != HttpMethod.GET) {
                         "/graph/v2/service/sys/label/info/edge"
+                    } else {
+                        "/graph/v2/service/sys/label/info/edge?src=origin&tgt=warmup"
                     }
                 webClient
                     .method(method)
